@@ -21,8 +21,7 @@ func NewMemory() *Memory {
 func (m *Memory) Peek(nsName, key string) *meta.Entry {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	e := m.entries[nsKey(nsName, key)]
-	return meta.CloneEntry(e)
+	return m.entries[nsKey(nsName, key)]
 }
 
 func (m *Memory) Get(nsName, key string) (*meta.Entry, error) {
