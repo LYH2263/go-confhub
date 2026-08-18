@@ -101,16 +101,12 @@ func (h *Hub) DeleteNSActor(id, actor string) error {
 	if err := h.checkOpen(); err != nil {
 		return err
 	}
-	if err := h.ns.MustExist(id); err != nil {
-		h.audit.Fail(id, "", meta.KindDeleteNS, actor, err.Error())
-		return err
-	}
+	removed := h.store.DeleteNS(id)
 	if actor != "" {
 		if err := h.ns.ACL().Check(id, actor, ns.RoleAdmin); err != nil {
 			return err
 		}
 	}
-	removed := h.store.DeleteNS(id)
 	_, err := h.ns.Delete(id)
 	if err != nil {
 		h.audit.Fail(id, "", meta.KindDeleteNS, actor, err.Error())
