@@ -54,6 +54,7 @@ func (h *Hub) Close() error {
 		return nil
 	}
 	h.closed = true
+	h.store.Close()
 	h.watch.Close()
 	return nil
 }

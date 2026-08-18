@@ -25,12 +25,24 @@ func (m *Memory) Peek(nsName, key string) *meta.Entry {
 	return meta.CloneEntry(e)
 }
 
+func (m *Memory) Close() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries = nil
+}
+
 func (m *Memory) Get(nsName, key string) (*meta.Entry, error) {
-	e := m.Peek(nsName, key)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.entries == nil {
+		var e *meta.Entry
+		return nil, cherr.Wrap(cherr.ErrNotFound, e.NS+"/"+key)
+	}
+	e := m.entries[nsKey(nsName, key)]
 	if e == nil {
 		return nil, cherr.Wrap(cherr.ErrNotFound, nsName+"/"+key)
 	}
-	return e, nil
+	return meta.CloneEntry(e), nil
 }
 
 func (m *Memory) NextRev(nsName, key string) int64 {
