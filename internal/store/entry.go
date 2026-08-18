@@ -10,8 +10,8 @@ import (
 
 func nsKey(ns, key string) string { return ns + "\x00" + key }
 
-// shareBytes 挂上调用方切片，不复制底层数组。
-func shareBytes(b []byte) []byte { return b }
+// shareBytes 复制 payload / 签名，避免调用方改底层缓冲。
+func shareBytes(b []byte) []byte { return meta.CloneBytes(b) }
 
 func nextRev(e *meta.Entry) int64 {
 	if e == nil || len(e.Versions) == 0 {
