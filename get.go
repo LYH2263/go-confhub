@@ -22,8 +22,8 @@ func (h *Hub) Get(nsName, key string, client ClientContext) (*Value, error) {
 		return nil, err
 	}
 	rev, hit, ok := gray.Select(e, client)
-	if !ok || !hit {
-		rev, hit, ok = e.Head, false, true
+	if !ok {
+		return nil, cherr.Wrap(cherr.ErrNoStable, nsName+"/"+key)
 	}
 	v := e.ByRev(rev)
 	if v == nil {
