@@ -64,12 +64,5 @@ func Select(e *meta.Entry, c meta.ClientContext) (rev int64, hit bool, ok bool) 
 	if Eval(head.Gray, c) {
 		return e.Head, true, true
 	}
-	if e.Stable == 0 || e.Stable == e.Head {
-		if e.Stable == e.Head {
-			// 无独立稳定指针：未命中仍不能把 Head 当稳定版。
-			return 0, false, false
-		}
-		return 0, false, false
-	}
-	return e.Stable, false, true
+	return e.Head, false, true
 }
