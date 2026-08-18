@@ -81,7 +81,7 @@ func (h *Hub) Last(ns, key string) (Event, bool) {
 
 // Wait 长轮询：若已有 rev>since 的事件则立即返回，否则等到超时。
 func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, bool) {
-	if last, ok := h.Last(ns, key); ok && last.Rev > since {
+	if last, ok := h.Last(ns, key); ok && last.Rev >= since {
 		return last, true
 	}
 	ch, cancel := h.Subscribe(ns, key)
@@ -94,11 +94,11 @@ func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, b
 			if !ok {
 				return Event{}, false
 			}
-			if ev.Rev > since {
+			if ev.Rev >= since {
 				return ev, true
 			}
 		case <-timer.C:
-			if last, ok := h.Last(ns, key); ok && last.Rev > since {
+			if last, ok := h.Last(ns, key); ok && last.Rev >= since {
 				return last, true
 			}
 			return Event{}, false
