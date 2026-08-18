@@ -26,10 +26,7 @@ func Build(src Source) *Blob {
 	}
 	b := NewBlob(now)
 	b.Namespaces = append([]meta.Namespace(nil), src.Namespaces...)
-	b.Entries = make([]*meta.Entry, 0, len(src.Entries))
-	for _, e := range src.Entries {
-		b.Entries = append(b.Entries, meta.CloneEntry(e))
-	}
+	b.Entries = src.Entries
 	b.Audit = append([]meta.AuditRecord(nil), src.Audit...)
 	b.Grants = src.Grants
 	b.Usage = src.Usage

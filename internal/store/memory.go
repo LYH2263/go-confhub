@@ -126,7 +126,7 @@ func (m *Memory) AllEntries() []*meta.Entry {
 	defer m.mu.RUnlock()
 	out := make([]*meta.Entry, 0, len(m.entries))
 	for _, e := range m.entries {
-		out = append(out, meta.CloneEntry(e))
+		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].NS != out[j].NS {
@@ -167,11 +167,7 @@ func (m *Memory) ReplaceAll(entries []*meta.Entry) error {
 		if e == nil {
 			continue
 		}
-		clone := meta.CloneEntry(e)
-		if err := ValidateChain(clone); err != nil {
-			return err
-		}
-		next[nsKey(clone.NS, clone.Key)] = clone
+		next[nsKey(e.NS, e.Key)] = e
 	}
 	m.mu.Lock()
 	m.entries = next
