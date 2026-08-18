@@ -21,6 +21,10 @@ func (s *subscription) send(ev Event) {
 	if s.closed.Load() {
 		return
 	}
+	// 仅投递与订阅过滤器匹配的事件；空过滤器视为通配。
+	if !Match(s.ns, s.key, ev) {
+		return
+	}
 	select {
 	case s.ch <- ev:
 	default:
