@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ConfHub 配置中心</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>ConfHub</h1>
+    <p>多租户配置中心 · 命名空间 / 版本 / 灰度 / 审计</p>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>命名空间</h2>
+      <form id="ns-form">
+        <input id="ns-id" placeholder="ID，如 prod" required />
+        <input id="ns-owner" placeholder="Owner" required />
+        <input id="ns-maxkeys" type="number" placeholder="MaxKeys" min="0" />
+        <button type="submit">创建</button>
+      </form>
+      <ul id="ns-list"></ul>
+    </section>
+    <section class="panel">
+      <h2>发布配置</h2>
+      <p id="current-ns">未选择命名空间</p>
+      <form id="put-form">
+        <input id="key-id" placeholder="键，如 feature.flag" required />
+        <textarea id="payload" placeholder="配置内容" rows="6" required></textarea>
+        <label>灰度百分比 <input id="gray-pct" type="number" min="0" max="100" value="0" /></label>
+        <input id="author" placeholder="作者" />
+        <button type="submit">发布</button>
+      </form>
+      <ul id="key-list"></ul>
+    </section>
+    <section class="panel">
+      <h2>最近审计</h2>
+      <ul id="audit-list"></ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
