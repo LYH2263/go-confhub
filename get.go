@@ -11,6 +11,9 @@ import (
 func (h *Hub) Get(nsName, key string, client ClientContext) (*Value, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if err := h.checkOpen(); err != nil {
+		return nil, err
+	}
 	if err := h.ns.MustExist(nsName); err != nil {
 		return nil, err
 	}
