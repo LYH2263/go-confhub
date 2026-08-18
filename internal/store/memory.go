@@ -35,8 +35,7 @@ func (m *Memory) Get(nsName, key string) (*meta.Entry, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
-		var e *meta.Entry
-		return nil, cherr.Wrap(cherr.ErrNotFound, e.NS+"/"+key)
+		return nil, cherr.ErrClosed
 	}
 	e := m.entries[nsKey(nsName, key)]
 	if e == nil {
