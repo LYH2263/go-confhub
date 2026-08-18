@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,10 +27,18 @@ func NewHub() *Hub {
 func lastKey(ns, key string) string { return ns + "\x00" + key }
 
 func (h *Hub) Subscribe(ns, key string) (<-chan Event, func()) {
-	return h.SubscribeBuf(ns, key, h.bufSize)
+	return h.SubscribeContext(context.Background(), ns, key)
+}
+
+func (h *Hub) SubscribeContext(ctx context.Context, ns, key string) (<-chan Event, func()) {
+	return h.SubscribeBufContext(ctx, ns, key, h.bufSize)
 }
 
 func (h *Hub) SubscribeBuf(ns, key string, buf int) (<-chan Event, func()) {
+	return h.SubscribeBufContext(context.Background(), ns, key, buf)
+}
+
+func (h *Hub) SubscribeBufContext(ctx context.Context, ns, key string, buf int) (<-chan Event, func()) {
 	if buf < 1 {
 		buf = 1
 	}
@@ -39,11 +48,13 @@ func (h *Hub) SubscribeBuf(ns, key string, buf int) (<-chan Event, func()) {
 		ns:  ns,
 		key: key,
 		ch:  make(chan Event, buf),
+		ctx: ctx,
 	}
 	h.mu.Lock()
 	h.subs[id] = s
 	h.mu.Unlock()
 	c := &cancelFn{fn: func() { h.unsubscribe(id) }}
+	// plant: 不监听 ctx.Done()，取消后订阅仍留在集合里。
 	return s.ch, c.Call
 }
 
@@ -81,10 +92,16 @@ func (h *Hub) Last(ns, key string) (Event, bool) {
 
 // Wait 长轮询：若已有 rev>since 的事件则立即返回，否则等到超时。
 func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, bool) {
+	return h.WaitContext(context.Background(), ns, key, since, timeout)
+}
+
+// WaitContext 应在 ctx 取消时停止等待并拆除订阅；plant 忽略 ctx。
+func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, timeout time.Duration) (Event, bool) {
+	_ = ctx
 	if last, ok := h.Last(ns, key); ok && last.Rev > since {
 		return last, true
 	}
-	ch, cancel := h.Subscribe(ns, key)
+	ch, cancel := h.SubscribeContext(ctx, ns, key)
 	defer cancel()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()

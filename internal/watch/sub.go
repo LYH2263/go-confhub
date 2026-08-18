@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 )
@@ -15,12 +16,14 @@ type subscription struct {
 	key    string
 	ch     chan Event
 	closed atomic.Bool
+	ctx    context.Context
 }
 
 func (s *subscription) send(ev Event) {
 	if s.closed.Load() {
 		return
 	}
+	// plant: 忽略 s.ctx 取消，仍向已取消订阅投递。
 	if !Match(s.ns, s.key, ev) {
 		return
 	}
