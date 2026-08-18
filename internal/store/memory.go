@@ -49,17 +49,42 @@ func (m *Memory) PutVersion(nsName, key string, v meta.VersionMeta) (*meta.Entry
 	if cur == nil {
 		out, err = NewEntry(nsName, key, v)
 	} else {
-		out, err = AppendVersion(cur, v)
+		clone := meta.CloneEntry(cur)
+		out, err = AppendVersion(clone, v)
 	}
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateChain(out); err != nil {
+		return nil, err
+	}
 	m.entries[id] = out
-	return out, nil
+	return meta.CloneEntry(out), nil
 }
 
-// DropLast 本应撤掉刚写入的版本；plant 做成空操作，失败发布仍可见。
+// DropLast 撤掉刚写入的最后一个版本；若只剩一版则删除整键。
 func (m *Memory) DropLast(nsName, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := nsKey(nsName, key)
+	cur := m.entries[id]
+	if cur == nil {
+		return cherr.Wrap(cherr.ErrNotFound, nsName+"/"+key)
+	}
+	if len(cur.Versions) <= 1 {
+		delete(m.entries, id)
+		return nil
+	}
+	clone := meta.CloneEntry(cur)
+	clone.Versions = clone.Versions[:len(clone.Versions)-1]
+	last := clone.Versions[len(clone.Versions)-1]
+	clone.Head = last.Rev
+	if last.Gray == nil || last.Gray.IsFullRollout() || last.Gray.IsZero() {
+		clone.Stable = last.Rev
+	} else {
+		clone.Stable = lastStableAtOrBefore(clone, last.Rev)
+	}
+	m.entries[id] = clone
 	return nil
 }
 

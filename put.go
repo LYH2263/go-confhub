@@ -52,6 +52,30 @@ func (h *Hub) Put(nsName, key string, payload []byte, opts PutOptions) (int64, e
 		signRev = opts.BindRev
 	}
 	needSign := h.requireSign || opts.Algo != "" || len(opts.Signature) > 0
+	if needSign {
+		if len(opts.Signature) == 0 {
+			h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, cherr.ErrSignRequired.Error())
+			return 0, cherr.ErrSignRequired
+		}
+		algo := sign.NormalizeAlgo(opts.Algo)
+		if algo == "" {
+			algo = sign.AlgoHMAC
+		}
+		if err := h.keys.Verify(nsName, key, opts.KeyID, algo, signRev, payload, opts.Signature); err != nil {
+			h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, err.Error())
+			return 0, err
+		}
+	}
+
+	newKey := !h.store.Exists(nsName, key)
+	if err := h.quota.Check(quota.CheckInput{
+		NS:       nmeta,
+		NewKey:   newKey,
+		AddBytes: int64(len(payload)),
+	}); err != nil {
+		h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, err.Error())
+		return 0, err
+	}
 
 	author := opts.Author
 	if author == "" {
@@ -67,38 +91,11 @@ func (h *Hub) Put(nsName, key string, payload []byte, opts PutOptions) (int64, e
 		Ts:      h.clk.Now(),
 		Gray:    g,
 	}
-	newKey := !h.store.Exists(nsName, key)
 	entry, err := h.store.PutVersion(nsName, key, v)
 	if err != nil {
 		h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, err.Error())
 		return 0, err
 	}
-
-	if needSign {
-		if len(opts.Signature) == 0 {
-			h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, cherr.ErrSignRequired.Error())
-			return 0, cherr.ErrSignRequired
-		}
-		if algo == "" {
-			algo = sign.AlgoHMAC
-		}
-		if err := h.keys.Verify(nsName, key, opts.KeyID, algo, signRev, payload, opts.Signature); err != nil {
-			h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, err.Error())
-			_ = h.store.DropLast(nsName, key)
-			return 0, err
-		}
-	}
-
-	if err := h.quota.Check(quota.CheckInput{
-		NS:       nmeta,
-		NewKey:   newKey,
-		AddBytes: int64(len(payload)),
-	}); err != nil {
-		h.audit.Fail(nsName, key, meta.KindPublish, opts.Actor, err.Error())
-		_ = h.store.DropLast(nsName, key)
-		return 0, err
-	}
-
 	addKeys := 0
 	if newKey {
 		addKeys = 1
