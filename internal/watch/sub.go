@@ -21,6 +21,9 @@ func (s *subscription) send(ev Event) {
 	if s.closed.Load() {
 		return
 	}
+	if !Match(s.ns, s.key, ev) {
+		return
+	}
 	select {
 	case s.ch <- ev:
 	default:
