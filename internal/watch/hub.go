@@ -54,7 +54,30 @@ func (h *Hub) SubscribeBufContext(ctx context.Context, ns, key string, buf int) 
 	h.subs[id] = s
 	h.mu.Unlock()
 	c := &cancelFn{fn: func() { h.unsubscribe(id) }}
-	// plant: 不监听 ctx.Done()，取消后订阅仍留在集合里。
+	if ctx != nil && ctx.Err() != nil {
+		c.Call()
+		return s.ch, c.Call
+	}
+	if ctx != nil {
+		stop := make(chan struct{})
+		orig := c.fn
+		wrapped := &cancelFn{fn: func() {
+			select {
+			case <-stop:
+			default:
+				close(stop)
+			}
+			orig()
+		}}
+		go func() {
+			select {
+			case <-ctx.Done():
+				wrapped.Call()
+			case <-stop:
+			}
+		}()
+		return s.ch, wrapped.Call
+	}
 	return s.ch, c.Call
 }
 
@@ -95,9 +118,14 @@ func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, b
 	return h.WaitContext(context.Background(), ns, key, since, timeout)
 }
 
-// WaitContext 应在 ctx 取消时停止等待并拆除订阅；plant 忽略 ctx。
+// WaitContext 在 ctx 取消时停止等待并拆除订阅。
 func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, timeout time.Duration) (Event, bool) {
-	_ = ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Err() != nil {
+		return Event{}, false
+	}
 	if last, ok := h.Last(ns, key); ok && last.Rev > since {
 		return last, true
 	}
@@ -107,6 +135,8 @@ func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, time
 	defer timer.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return Event{}, false
 		case ev, ok := <-ch:
 			if !ok {
 				return Event{}, false

@@ -23,7 +23,9 @@ func (s *subscription) send(ev Event) {
 	if s.closed.Load() {
 		return
 	}
-	// plant: 忽略 s.ctx 取消，仍向已取消订阅投递。
+	if s.ctx != nil && s.ctx.Err() != nil {
+		return
+	}
 	if !Match(s.ns, s.key, ev) {
 		return
 	}
