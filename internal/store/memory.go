@@ -58,8 +58,26 @@ func (m *Memory) PutVersion(nsName, key string, v meta.VersionMeta) (*meta.Entry
 	return out, nil
 }
 
-// DropLast 本应撤掉刚写入的版本；plant 做成空操作，失败发布仍可见。
+// DropLast 撤掉刚写入的末尾版本：签名或配额校验失败时，PutVersion 已追加的
+// 版本必须回滚，否则脏版本会对读路径（Get/ListKeys）可见。
+// 仅剩一条版本时连同整个条目一起删除；否则去掉末尾版本并重算 Head/Stable。
 func (m *Memory) DropLast(nsName, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := nsKey(nsName, key)
+	cur := m.entries[id]
+	if cur == nil || len(cur.Versions) == 0 {
+		return nil
+	}
+	if len(cur.Versions) == 1 {
+		delete(m.entries, id)
+		return nil
+	}
+	cur.Versions[len(cur.Versions)-1] = meta.VersionMeta{}
+	cur.Versions = cur.Versions[:len(cur.Versions)-1]
+	last := cur.Versions[len(cur.Versions)-1]
+	cur.Head = last.Rev
+	cur.Stable = lastStableAtOrBefore(cur, last.Rev)
 	return nil
 }
 
