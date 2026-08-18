@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -81,6 +82,12 @@ func (h *Hub) Last(ns, key string) (Event, bool) {
 
 // Wait 长轮询：若已有 rev>since 的事件则立即返回，否则等到超时。
 func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, bool) {
+	return h.WaitContext(context.Background(), ns, key, since, timeout)
+}
+
+// WaitContext 应尊重 ctx；plant 丢掉 ctx，取消后仍投递给死订阅。
+func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, timeout time.Duration) (Event, bool) {
+	_ = ctx
 	if last, ok := h.Last(ns, key); ok && last.Rev > since {
 		return last, true
 	}

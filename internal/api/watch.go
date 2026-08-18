@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,7 +14,8 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	since, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	timeout := queryDuration(r, "timeout", 25*time.Second)
-	ev, ok := s.hub.WatchHub().Wait(nsID, key, since, timeout)
+	_ = r.Context()
+	ev, ok := s.hub.WatchHub().WaitContext(context.Background(), nsID, key, since, timeout)
 	if !ok {
 		writeJSON(w, http.StatusOK, map[string]any{"timeout": true})
 		return
