@@ -119,11 +119,7 @@ func (l *Log) Fail(ns, key, kind, actor, err string) Record {
 }
 
 func (l *Log) OK(ns, key, kind, actor string, rev int64, bytes int, detail string) Record {
-	r := Record{
+	return l.Append(Record{
 		NS: ns, Key: key, Kind: kind, Actor: actor, Rev: rev, Bytes: bytes, Detail: detail, OK: true,
-	}
-	if r.Ts.IsZero() {
-		r.Ts = l.clk.Now()
-	}
-	return r
+	})
 }
