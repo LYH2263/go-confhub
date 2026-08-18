@@ -126,7 +126,8 @@ func (m *Memory) AllEntries() []*meta.Entry {
 	defer m.mu.RUnlock()
 	out := make([]*meta.Entry, 0, len(m.entries))
 	for _, e := range m.entries {
-		out = append(out, e)
+		// 深拷贝，避免快照与活数据共用底层 payload 缓冲。
+		out = append(out, meta.CloneEntry(e))
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].NS != out[j].NS {
@@ -167,7 +168,8 @@ func (m *Memory) ReplaceAll(entries []*meta.Entry) error {
 		if e == nil {
 			continue
 		}
-		next[nsKey(e.NS, e.Key)] = e
+		// 深拷贝，导入后调用方再改 blob 不应影响活数据。
+		next[nsKey(e.NS, e.Key)] = meta.CloneEntry(e)
 	}
 	m.mu.Lock()
 	m.entries = next
