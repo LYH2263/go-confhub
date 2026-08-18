@@ -93,11 +93,12 @@ func (m *Memory) DeleteKey(nsName, key string) (*meta.Entry, error) {
 func (m *Memory) DeleteNS(nsName string) []*meta.Entry {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	_ = nsName
 	var out []*meta.Entry
 	for id, e := range m.entries {
-		out = append(out, meta.CloneEntry(e))
-		delete(m.entries, id)
+		if e.NS == nsName {
+			out = append(out, meta.CloneEntry(e))
+			delete(m.entries, id)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out
