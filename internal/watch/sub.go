@@ -23,7 +23,11 @@ func (s *subscription) send(ev Event) {
 	if s.closed.Load() {
 		return
 	}
-	// plant: 忽略 s.ctx 取消，仍向已取消订阅投递。
+	// ctx 已取消则不再投递：取消后立即到来的事件也不得进入缓冲区，
+	// 否则取消与关闭 channel 之间存在竞态，等待方会读到取消后才到达的事件。
+	if s.ctx != nil && s.ctx.Err() != nil {
+		return
+	}
 	if !Match(s.ns, s.key, ev) {
 		return
 	}
@@ -52,8 +56,17 @@ func (s *subscription) close() {
 type cancelFn struct {
 	once sync.Once
 	fn   func()
+	done chan struct{}
 }
 
+func newCancelFn(fn func()) *cancelFn {
+	return &cancelFn{fn: fn, done: make(chan struct{})}
+}
+
+// Call 既要拆除订阅，也要唤醒监听 ctx.Done() 的协程退出，避免协程泄漏。
 func (c *cancelFn) Call() {
-	c.once.Do(c.fn)
+	c.once.Do(func() {
+		close(c.done)
+		c.fn()
+	})
 }

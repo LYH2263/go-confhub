@@ -53,8 +53,18 @@ func (h *Hub) SubscribeBufContext(ctx context.Context, ns, key string, buf int) 
 	h.mu.Lock()
 	h.subs[id] = s
 	h.mu.Unlock()
-	c := &cancelFn{fn: func() { h.unsubscribe(id) }}
-	// plant: 不监听 ctx.Done()，取消后订阅仍留在集合里。
+	c := newCancelFn(func() { h.unsubscribe(id) })
+	// 监听 ctx.Done()：取消后拆除订阅并关闭 channel，使等待方收到 ok=false。
+	// 对不可取消的 context（Done()==nil，如 Background）无需起协程，避免泄漏。
+	if ctx.Done() != nil {
+		go func() {
+			select {
+			case <-ctx.Done():
+				h.unsubscribe(id)
+			case <-c.done:
+			}
+		}()
+	}
 	return s.ch, c.Call
 }
 
@@ -95,9 +105,8 @@ func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, b
 	return h.WaitContext(context.Background(), ns, key, since, timeout)
 }
 
-// WaitContext 应在 ctx 取消时停止等待并拆除订阅；plant 忽略 ctx。
+// WaitContext 在 ctx 取消时停止等待并拆除订阅。
 func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, timeout time.Duration) (Event, bool) {
-	_ = ctx
 	if last, ok := h.Last(ns, key); ok && last.Rev > since {
 		return last, true
 	}
@@ -118,6 +127,8 @@ func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, time
 			if last, ok := h.Last(ns, key); ok && last.Rev > since {
 				return last, true
 			}
+			return Event{}, false
+		case <-ctx.Done():
 			return Event{}, false
 		}
 	}
