@@ -75,7 +75,9 @@ func (h *Hub) RollbackActor(nsName, key string, rev int64, actor string) error {
 	}
 	h.audit.OK(nsName, key, meta.KindRollback, actor, e.Head, 0, "")
 	h.watch.Publish(watch.NewEvent(nsName, key, meta.KindRollback, e.Head))
-	h.maybePersistLocked()
+	if h.persistPath != "" {
+		_ = h.store.SaveJSON(h.persistPath)
+	}
 	return nil
 }
 
