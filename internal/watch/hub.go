@@ -85,9 +85,14 @@ func (h *Hub) Wait(ns, key string, since int64, timeout time.Duration) (Event, b
 	return h.WaitContext(context.Background(), ns, key, since, timeout)
 }
 
-// WaitContext 应尊重 ctx；plant 丢掉 ctx，取消后仍投递给死订阅。
+// WaitContext 在 ctx 取消时拆除订阅并返回，避免向死连接 Publish。
 func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, timeout time.Duration) (Event, bool) {
-	_ = ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Err() != nil {
+		return Event{}, false
+	}
 	if last, ok := h.Last(ns, key); ok && last.Rev > since {
 		return last, true
 	}
@@ -97,6 +102,8 @@ func (h *Hub) WaitContext(ctx context.Context, ns, key string, since int64, time
 	defer timer.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return Event{}, false
 		case ev, ok := <-ch:
 			if !ok {
 				return Event{}, false
