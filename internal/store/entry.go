@@ -10,9 +10,6 @@ import (
 
 func nsKey(ns, key string) string { return ns + "\x00" + key }
 
-// shareBytes 挂上调用方切片，不复制底层数组。
-func shareBytes(b []byte) []byte { return b }
-
 func nextRev(e *meta.Entry) int64 {
 	if e == nil || len(e.Versions) == 0 {
 		return 1
@@ -32,8 +29,6 @@ func AppendVersion(e *meta.Entry, v meta.VersionMeta) (*meta.Entry, error) {
 	if v.Rev != want {
 		return nil, cherr.Wrap(cherr.ErrBadRevision, version.Format(v.Rev)+" want="+version.Format(want))
 	}
-	v.Payload = shareBytes(v.Payload)
-	v.Sig = shareBytes(v.Sig)
 	e.Versions = append(e.Versions, v)
 	e.Head = v.Rev
 	if v.Gray == nil || v.Gray.IsFullRollout() || v.Gray.IsZero() {
@@ -53,8 +48,6 @@ func NewEntry(nsName, key string, v meta.VersionMeta) (*meta.Entry, error) {
 	if v.Rev != 1 {
 		return nil, cherr.Wrap(cherr.ErrBadRevision, version.Format(v.Rev))
 	}
-	v.Payload = shareBytes(v.Payload)
-	v.Sig = shareBytes(v.Sig)
 	e.Versions = []meta.VersionMeta{v}
 	e.Head = 1
 	if v.Gray == nil || v.Gray.IsFullRollout() || v.Gray.IsZero() {

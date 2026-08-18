@@ -84,8 +84,8 @@ func (h *Hub) Put(nsName, key string, payload []byte, opts PutOptions) (int64, e
 	algo := sign.NormalizeAlgo(opts.Algo)
 	v := meta.VersionMeta{
 		Rev:     next,
-		Payload: payload,
-		Sig:     opts.Signature,
+		Payload: meta.CloneBytes(payload),
+		Sig:     meta.CloneBytes(opts.Signature),
 		Algo:    algo,
 		Author:  author,
 		Ts:      h.clk.Now(),
